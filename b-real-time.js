@@ -452,11 +452,11 @@ window.headertag.partnerScopes.push(function() {
                     ad: response.tags[i].ads[0].rtb.banner.content
                 }
               }
-              console.log('demand',demand);
               callback(null, demand);
             }
             , onFailure: function() {
-              console.log('onFailure');
+              err.push('Something went wrong.');
+              callback(err);
             }
           })
 
