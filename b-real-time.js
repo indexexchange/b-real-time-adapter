@@ -133,9 +133,28 @@ window.headertag.partnerScopes.push(function() {
          */
 
         /* PUT CODE HERE */
-
+              if(!config.xSlots[xSlotName].hasOwnProperty('placementId') || !config.xSlots[xSlotName].hasOwnProperty('sizes')) {
+                err.push('Missing required parameters.');
+              }
+              if(!Utils.isNumber(config.xSlots[xSlotName].placementId)) {
+                err.push('`placementId` must be a number.');
+              }
+              if(!Utils.isArray(config.xSlots[xSlotName].sizes)) {
+                err.push('`sizes` must be an array.');
+              }
+              for(var i=0;i<config.xSlots[xSlotName].sizes.length;i++) {
+                if(!Utils.isArray(config.xSlots[xSlotName].sizes[i])) {
+                  err.push('`sizes[' + i + ']` must be an array.');
+                } else {
+                  for(var j=0;j<config.xSlots[xSlotName].sizes[i].length;j++) {
+                    if(!Utils.isNumber(config.xSlots[xSlotName].sizes[i][j])) {
+                      err.push('`sizes[' + i + '][' + j + ']` must be a number.');
+                    }
+                  }
+                }
+              }
         /* -------------------------------------------------------------------------- */
-
+            
             }
         }
 
@@ -334,6 +353,8 @@ window.headertag.partnerScopes.push(function() {
          */
 
         /* PUT CODE HERE */
+        
+        var ENDPOINT = '//ib.adnxs.com/ut/v2/prebid', __brt = {};
 
         /* -------------------------------------------------------------------------- */
 
@@ -387,6 +408,57 @@ window.headertag.partnerScopes.push(function() {
              */
 
             /* PUT CODE HERE */
+          let tags = [];
+          for(var i=0;i<htSlotNames.length;i++) {
+            let tag = {};
+            tag.sizes = config.xSlots[config.mapping[htSlotNames[i]]].sizes.map(function(obj) {
+              return {width:obj[0], height:obj[1]};
+            });
+            tag.primary_size = tag.sizes[0];
+            tag.uuid = function() {
+              var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', uuid = '';
+              for(var i=0;i<15;i++) {
+                uuid += possible.charAt(Math.floor(Math.random() * possible.length));
+              }
+              return uuid;
+            }();
+            tag.id = config.xSlots[config.mapping[htSlotNames[i]]].placementId;
+            tag.allow_smaller_sizes = false;
+            tag.prebid = true;
+            tag.disable_psa = true;
+            tags.push(tag);
+            __brt[tag.uuid] = {
+                htSlot: htSlotNames[i]
+            };
+          }
+          Network.ajax({
+            url: ENDPOINT
+            , method: 'POST'
+            , withCredentials: true
+            , data: JSON.stringify({tags: tags})
+            , onSuccess: function(response) {
+              // @todo: deal ID?
+              response = JSON.parse(response);
+              var demand = {};
+              for(var i=0;i<response.tags.length;i++) {
+                demand[__brt[response.tags[i].uuid].htSlot] = {
+                    timestamp: Utils.now()
+                    , demand: {}
+                }
+                demand[__brt[response.tags[i].uuid].htSlot].demand[__targetingKeys.idKey] = response.tags[i].uuid;
+                demand[__brt[response.tags[i].uuid].htSlot].demand[__targetingKeys.omKey] = response.tags[i].ads[0].rtb.banner.width + 'x' + response.tags[i].ads[0].rtb.banner.height + '_' + __bidTransformer.transformBid(response.tags[i].ads[0].cpm);
+                __creativeStore[response.tags[i].uuid] = {};
+                __creativeStore[response.tags[i].uuid][response.tags[i].ads[0].rtb.banner.width + 'x' + response.tags[i].ads[0].rtb.banner.height] = {
+                    ad: response.tags[i].ads[0].rtb.banner.content
+                }
+              }
+              console.log('demand',demand);
+              callback(null, demand);
+            }
+            , onFailure: function() {
+              console.log('onFailure');
+            }
+          })
 
             /* -------------------------------------------------------------------------- */
 
@@ -396,6 +468,9 @@ window.headertag.partnerScopes.push(function() {
             var htSlotNames = Utils.getDivIds(slots);
 
             __requestDemandForSlots(htSlotNames, function(err, demandForSlots){
+                if(typeof demand == 'undefined') {
+                  var demand = {slot:{}}; // @todo: is this a bug?
+                }
                 if (err) {
                     callback(err);
                     return;
@@ -441,6 +516,7 @@ window.headertag.partnerScopes.push(function() {
              * pixels etc. that need to be called as well.
              */
 
+            // @todo: impression pixels?
             if (doc && targetingMap && width && height) {
                 try {
                     var id = targetingMap[__targetingKeys.idKey][0];
@@ -450,7 +526,7 @@ window.headertag.partnerScopes.push(function() {
                         width = window.headertag.sizeRetargeting[sizeKey][0];
                         height = window.headertag.sizeRetargeting[sizeKey][1];
                     }
-
+                    
                     var ad = __creativeStore[id][width + 'x' + height].ad;
 
                     doc.write(ad);
