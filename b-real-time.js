@@ -408,50 +408,65 @@ window.headertag.partnerScopes.push(function() {
              */
 
             /* PUT CODE HERE */
-          let tags = [];
+          function _getUUID() {
+            var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', uuid = '';
+            for(var i=0;i<15;i++) {
+              uuid += possible.charAt(Math.floor(Math.random() * possible.length));
+            }
+            return uuid;
+          }
+          // create tags object
+          var tags = [];
           for(var i=0;i<htSlotNames.length;i++) {
-            let tag = {};
+            // create tag object
+            var tag = {};
             tag.sizes = config.xSlots[config.mapping[htSlotNames[i]]].sizes.map(function(obj) {
               return {width:obj[0], height:obj[1]};
             });
             tag.primary_size = tag.sizes[0];
-            tag.uuid = function() {
-              var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', uuid = '';
-              for(var i=0;i<15;i++) {
-                uuid += possible.charAt(Math.floor(Math.random() * possible.length));
-              }
-              return uuid;
-            }();
+            tag.uuid = _getUUID();
             tag.id = config.xSlots[config.mapping[htSlotNames[i]]].placementId;
             tag.allow_smaller_sizes = false;
             tag.prebid = true;
             tag.disable_psa = true;
+            // add tag to tags
             tags.push(tag);
+            // add to tracking store
             __brt[tag.uuid] = {
                 htSlot: htSlotNames[i]
             };
           }
+          // request payload
           Network.ajax({
             url: ENDPOINT
             , method: 'POST'
             , withCredentials: true
             , data: JSON.stringify({tags: tags})
             , onSuccess: function(response) {
-              // @todo: deal ID?
+              // parse response
               response = JSON.parse(response);
+              // create demand object
               var demand = {};
               for(var i=0;i<response.tags.length;i++) {
                 demand[__brt[response.tags[i].uuid].htSlot] = {
-                    timestamp: Utils.now()
-                    , demand: {}
+                  timestamp: Utils.now()
+                  , demand: {}
                 }
                 demand[__brt[response.tags[i].uuid].htSlot].demand[__targetingKeys.idKey] = response.tags[i].uuid;
-                demand[__brt[response.tags[i].uuid].htSlot].demand[__targetingKeys.omKey] = response.tags[i].ads[0].rtb.banner.width + 'x' + response.tags[i].ads[0].rtb.banner.height + '_' + __bidTransformer.transformBid(response.tags[i].ads[0].cpm);
+                // switch based on deal_id
+                if(typeof response.tags[i].ads[0].deal_id == 'undefined') {
+                  demand[__brt[response.tags[i].uuid].htSlot].demand[__targetingKeys.omKey] = response.tags[i].ads[0].rtb.banner.width + 'x' + response.tags[i].ads[0].rtb.banner.height + '_' + __bidTransformer.transformBid(response.tags[i].ads[0].cpm);
+                } else {
+                  demand[__brt[response.tags[i].uuid].htSlot].demand[__targetingKeys.pmidKey] = response.tags[i].ads[0].rtb.banner.width + 'x' + response.tags[i].ads[0].rtb.banner.height + '_deal';
+                }
+                // add to creative store
                 __creativeStore[response.tags[i].uuid] = {};
                 __creativeStore[response.tags[i].uuid][response.tags[i].ads[0].rtb.banner.width + 'x' + response.tags[i].ads[0].rtb.banner.height] = {
-                    ad: response.tags[i].ads[0].rtb.banner.content
+                  ad: response.tags[i].ads[0].rtb.banner.content
+                  , trackers: response.tags[i].ads[0].rtb.trackers
                 }
               }
+              // pass along
               callback(null, demand);
             }
             , onFailure: function() {
@@ -516,7 +531,6 @@ window.headertag.partnerScopes.push(function() {
              * pixels etc. that need to be called as well.
              */
 
-            // @todo: impression pixels?
             if (doc && targetingMap && width && height) {
                 try {
                     var id = targetingMap[__targetingKeys.idKey][0];
@@ -535,8 +549,23 @@ window.headertag.partnerScopes.push(function() {
                         doc.defaultView.frameElement.width = width;
                         doc.defaultView.frameElement.height = height;
                     }
+                    // added impression pixels
+                    var trackers = __creativeStore[id][width + 'x' + height].trackers;
+                    if(trackers.length != 0) {
+                      for(var i=0;i<trackers.length;i++) {
+                        for(var j=0;j<trackers[i].impression_urls.length;j++) {
+                          var img = window.document.createElement('img');
+                          img.src = trackers[i].impression_urls[j];
+                          img.width = 1;
+                          img.height = 1;
+                          img.style = 'position: absolute;top:-999px;left:-9999px;';
+                          window.document.body.appendChild(img);
+                        }
+                      }
+                    }
                 } catch (e){
                     //? if (DEBUG)
+                  console.error(e);
                     console.log('Error trying to write ' + PARTNER_ID + ' ad to the page');
                 }
 
