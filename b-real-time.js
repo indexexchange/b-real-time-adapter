@@ -133,9 +133,28 @@ window.headertag.partnerScopes.push(function() {
          */
 
         /* PUT CODE HERE */
-
+              if(!config.xSlots[xSlotName].hasOwnProperty('placementId') || !config.xSlots[xSlotName].hasOwnProperty('sizes')) {
+                err.push('Missing required parameters.');
+              }
+              if(!Utils.isNumber(config.xSlots[xSlotName].placementId)) {
+                err.push('`placementId` must be a number.');
+              }
+              if(!Utils.isArray(config.xSlots[xSlotName].sizes)) {
+                err.push('`sizes` must be an array.');
+              }
+              for(var i=0;i<config.xSlots[xSlotName].sizes.length;i++) {
+                if(!Utils.isArray(config.xSlots[xSlotName].sizes[i])) {
+                  err.push('`sizes[' + i + ']` must be an array.');
+                } else {
+                  for(var j=0;j<config.xSlots[xSlotName].sizes[i].length;j++) {
+                    if(!Utils.isNumber(config.xSlots[xSlotName].sizes[i][j])) {
+                      err.push('`sizes[' + i + '][' + j + ']` must be a number.');
+                    }
+                  }
+                }
+              }
         /* -------------------------------------------------------------------------- */
-
+            
             }
         }
 
@@ -334,6 +353,8 @@ window.headertag.partnerScopes.push(function() {
          */
 
         /* PUT CODE HERE */
+        
+        var ENDPOINT = '//ib.adnxs.com/ut/v2/prebid', __brt = {};
 
         /* -------------------------------------------------------------------------- */
 
@@ -387,6 +408,72 @@ window.headertag.partnerScopes.push(function() {
              */
 
             /* PUT CODE HERE */
+          function _getUUID() {
+            var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', uuid = '';
+            for(var i=0;i<15;i++) {
+              uuid += possible.charAt(Math.floor(Math.random() * possible.length));
+            }
+            return uuid;
+          }
+          // create tags object
+          var tags = [];
+          for(var i=0;i<htSlotNames.length;i++) {
+            // create tag object
+            var tag = {};
+            tag.sizes = config.xSlots[config.mapping[htSlotNames[i]]].sizes.map(function(obj) {
+              return {width:obj[0], height:obj[1]};
+            });
+            tag.primary_size = tag.sizes[0];
+            tag.uuid = _getUUID();
+            tag.id = config.xSlots[config.mapping[htSlotNames[i]]].placementId;
+            tag.allow_smaller_sizes = false;
+            tag.prebid = true;
+            tag.disable_psa = true;
+            // add tag to tags
+            tags.push(tag);
+            // add to tracking store
+            __brt[tag.uuid] = {
+                htSlot: htSlotNames[i]
+            };
+          }
+          // request payload
+          Network.ajax({
+            url: ENDPOINT
+            , method: 'POST'
+            , withCredentials: true
+            , data: JSON.stringify({tags: tags})
+            , onSuccess: function(response) {
+              // parse response
+              response = JSON.parse(response);
+              // create demand object
+              var demand = {};
+              for(var i=0;i<response.tags.length;i++) {
+                demand[__brt[response.tags[i].uuid].htSlot] = {
+                  timestamp: Utils.now()
+                  , demand: {}
+                }
+                demand[__brt[response.tags[i].uuid].htSlot].demand[__targetingKeys.idKey] = response.tags[i].uuid;
+                // switch based on deal_id
+                if(typeof response.tags[i].ads[0].deal_id == 'undefined') {
+                  demand[__brt[response.tags[i].uuid].htSlot].demand[__targetingKeys.omKey] = response.tags[i].ads[0].rtb.banner.width + 'x' + response.tags[i].ads[0].rtb.banner.height + '_' + __bidTransformer.transformBid(response.tags[i].ads[0].cpm);
+                } else {
+                  demand[__brt[response.tags[i].uuid].htSlot].demand[__targetingKeys.pmidKey] = response.tags[i].ads[0].rtb.banner.width + 'x' + response.tags[i].ads[0].rtb.banner.height + '_deal';
+                }
+                // add to creative store
+                __creativeStore[response.tags[i].uuid] = {};
+                __creativeStore[response.tags[i].uuid][response.tags[i].ads[0].rtb.banner.width + 'x' + response.tags[i].ads[0].rtb.banner.height] = {
+                  ad: response.tags[i].ads[0].rtb.banner.content
+                  , trackers: response.tags[i].ads[0].rtb.trackers
+                }
+              }
+              // pass along
+              callback(null, demand);
+            }
+            , onFailure: function() {
+              err.push('Something went wrong.');
+              callback(err);
+            }
+          })
 
             /* -------------------------------------------------------------------------- */
 
@@ -396,6 +483,9 @@ window.headertag.partnerScopes.push(function() {
             var htSlotNames = Utils.getDivIds(slots);
 
             __requestDemandForSlots(htSlotNames, function(err, demandForSlots){
+                if(typeof demand == 'undefined') {
+                  var demand = {slot:{}}; // @todo: is this a bug?
+                }
                 if (err) {
                     callback(err);
                     return;
@@ -450,7 +540,7 @@ window.headertag.partnerScopes.push(function() {
                         width = window.headertag.sizeRetargeting[sizeKey][0];
                         height = window.headertag.sizeRetargeting[sizeKey][1];
                     }
-
+                    
                     var ad = __creativeStore[id][width + 'x' + height].ad;
 
                     doc.write(ad);
@@ -459,8 +549,23 @@ window.headertag.partnerScopes.push(function() {
                         doc.defaultView.frameElement.width = width;
                         doc.defaultView.frameElement.height = height;
                     }
+                    // added impression pixels
+                    var trackers = __creativeStore[id][width + 'x' + height].trackers;
+                    if(trackers.length != 0) {
+                      for(var i=0;i<trackers.length;i++) {
+                        for(var j=0;j<trackers[i].impression_urls.length;j++) {
+                          var img = window.document.createElement('img');
+                          img.src = trackers[i].impression_urls[j];
+                          img.width = 1;
+                          img.height = 1;
+                          img.style = 'position: absolute;top:-999px;left:-9999px;';
+                          window.document.body.appendChild(img);
+                        }
+                      }
+                    }
                 } catch (e){
                     //? if (DEBUG)
+                  console.error(e);
                     console.log('Error trying to write ' + PARTNER_ID + ' ad to the page');
                 }
 
