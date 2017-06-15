@@ -57,12 +57,7 @@ describe('Partner Profile', function () {
                 },
                 statsId: {
                     type: 'string',
-                    ne: 'PNH',
-                    exec: function (schema, post) {
-                        if (post.length !== 3) {
-                            this.report('should be exactly three characters');
-                        }
-                    }
+                    ne: 'PNH'
                 },
                 version: {
                     type: 'string'

@@ -34,7 +34,7 @@ Below you will find everything you need to complete the certification process an
     * b-real-time-htb.js is where all of your adapter code will live.
     * In order to complete the partner module correctly, please refer to the [Partner Module Overview](#overview) and the [Utility Libraries](#helpers) sections.
     * <b>Please refer to the [Partner Requirements and Guidelines](#requirements) when creating your module. Ensure requirements are met to streamline the review process.</b>
-2. <b>Complete the b-real-time-htb.js file</b>
+2. <b>Complete the b-real-time-htb-validator.js file</b>
     * This file is where your partner-specific configurations will need to be validated.
     * Things like type and null checks will be done here.
 3. <b>Complete the b-real-time-htb-exports.js file</b>
@@ -212,14 +212,14 @@ The `b-real-time-htb-validator.js` file contains a single export, a `partnerVali
 
 We have provided a very basic validation schema based off of the example `mockPartnerConfig.js` object found in the `spec/support` directory for testing (refer to the [Testing](#testing) section for the testing structure).
 
-Once you have file this file out, you can continue to actually writing your module!
+Once you have filled this file out, you can continue to actually writing your module!
 
 ### Step 1: Partner Configuration (`b-real-time-htb.js`)
 This section involves setting up the general partner configuration such as name, default pricing strategy as well as the general format of incoming/outgoing bids for the adapter. Please fill out all of the keys inside the `__profile` variable.
 
 * <u>partnerId</u> - This is simply the name of our module, generally if your module is a bidder the name will end with Htb.
 * <u>namespace</u> - Should be the same as partnerId, it is the namespace that is used internally to store all of variables/functions related to your module, i.e. adResponseCallbacks.
-* <u>statsId</u> - A three character unique identifier used for analytics.
+* <u>statsId</u> - A unique identifier used for analytics.
 * <u>version</u> - If this is the first iteration of your module, please leave this field at 2.0.0.
 * <u>targetingType</u> - The targeting type of your bidder, the default is slot for slot level targeting but could also be page.
 * <u>enabledAnalytics</u> - The analytics that the wrapper will track for the module. requestTime is the only currently supported analytic, which records different times around when bid requests occur.
@@ -264,7 +264,7 @@ This step is for crafting a bid request url given a specific set of parcels.
 For this step, you must fill out the `generateRequestObj(returnParcels)` function. This function takes in an array of returnParcels.
 These are the parcel objects that contain the different slots for which demand needs to be requested.
 
-The wrapper will ensure that the array contains an appropriate set of parcels to pass into a single network request for your endpoint based on the value set in __profile.architecture. Note in particular case  your architecture is MRA, this array will have length 1.
+The wrapper will ensure that the array contains an appropriate set of parcels to pass into a single network request for your endpoint based on the value set in __profile.architecture. Note, in the particular case your architecture is MRA, this array will have length 1.
 
 Using this array of parcels, the adapter must craft a request object that will be used to send out the bid request for these slots. This object must contain the request URL, an object containing query parameters, and a callbackId.
 
@@ -291,10 +291,10 @@ The final returned object should looks something like this:
 }
 ```
 
-More information in the comment section of the function itself.
+More information can be found in the comment section of the function itself.
 
 ### Step 3: Response Callback (`b-real-time-htb.js`)
-Once the request from Step 2 finishes the `adResponseCallback` will be called to store the return the response in a `adResponseStore` object.
+Once the request from Step 2 finishes the `adResponseCallback` will be called to store the returned response in a `adResponseStore` object.
 
 If `__profile.callbackType` is set to `CALLBACK_NAME` or `NONE`, the wrapper will handle the callback for you and you can remove this function. If it is set to ID, you must retrieve the callback ID from the network response and store that response in the `_adResponseStore` object keyed by the callback ID.
 
@@ -452,6 +452,11 @@ As you can see, we have divided the spec files based on the different functions/
 
 ### <a name='basictests'></a> Running Basic Tests
 In order to submit your module for review, you must first pass all of the basic tests cases included in the repository. In order to run these tests you must first install all the necessary npm packages by running `npm install` and then simply run the command `npm test` from the root of the repository to execute the tests. NPM version `3.8.6` and node version `v6.1.0` were used when developing these tests.
+
+-In order to submit your module for review, you must first pass all of the basic test cases included in the repo
+sitory. In order to run these tests you must first install all the necessary npm packages by running `npm install
+` and then simply run the command `npm test` from the root of the repository to execute the tests. NPM version `3
+.8.6` and node version `v6.1.0` were used when developing these tests.
 
 Before running the `npm test` command you must first fill out both the `mockPartnerConfig.json` to contain a correct sample configuration for your partner. Based on this configuration, parcels will be generated. For SRA partners, all of the slots outlined in your mockPartnerConfig will have corresponding parcels generated. For MRA, only the first xSlot/htSlot combination will have a parcel generated and fed into your module's functions.
 
