@@ -378,7 +378,7 @@ function BRealTimeHtb(configs) {
         __profile = {
             partnerId: 'BRealTimeHtb', // PartnerName
             namespace: 'BRealTimeHtb', // Should be same as partnerName
-            statsId: 'BRT', // Three character unique partner identifier
+            statsId: 'BRT', // Unique partner identifier
             version: '2.0.0',
             targetingType: 'slot',
             enabledAnalytics: {
@@ -398,7 +398,7 @@ function BRealTimeHtb(configs) {
                 id: 'ix_brt_id',
                 om: 'ix_brt_cpm',
                 pm: 'ix_brt_cpm',
-                pmid: 'ix_brt_pmid'
+                pmid: 'ix_brt_dealid'
             },
             lineItemType: Constants.LineItemTypes.ID_AND_SIZE,
             callbackType: Partner.CallbackTypes.ID, // Callback type, please refer to the readme for details
