@@ -255,7 +255,7 @@ function BRealTimeHtb(configs) {
 
         /* ---------- Proces adResponse and extract the bids into the bids array ------------*/
 
-        var bids = adResponse[0].tags;
+        var bids = adResponse.tags;
 
         /* --------------------------------------------------------------------------------- */
         for (var i = 0; i < bids.length; i++) {
