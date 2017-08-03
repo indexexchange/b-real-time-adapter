@@ -78,7 +78,7 @@ function BRealTimeHtb(configs) {
      * 
      * @private {string}
      */
-    var __endpoint = '//ib.adnxs.com/ut/v2/prebid';
+    var __endpoint = 'ib.adnxs.com/ut/v2/prebid';
 
     /* =====================================
      * Functions
@@ -97,7 +97,7 @@ function BRealTimeHtb(configs) {
      */
     function __generateRequestObj(returnParcels) {
         var queryObj = {};
-        var baseUrl = Browser.getProtocol() + '';
+        var baseUrl = Browser.getProtocol() + __endpoint;
         var callbackId = System.generateUniqueId();
 
         /* =============================================================================
@@ -160,7 +160,7 @@ function BRealTimeHtb(configs) {
         
         var __tags = [];
         for(var i=0;i<returnParcels.length;i++) {
-          let returnParcel = returnParcels[i], tag = {};
+          var returnParcel = returnParcels[i], tag = {};
           tag.sizes = returnParcel.xSlotRef.sizes.map(function(obj) {
             return {width:obj[0], height:obj[1]};
           });
@@ -176,9 +176,9 @@ function BRealTimeHtb(configs) {
         /* -------------------------------------------------------------------------- */
 
         return {
-            url: __endpoint,
+            url: baseUrl,
             data: {tags: __tags},
-            callbackId: callbackId
+            callbackId: Partner.CallbackTypes.CALLBACK_NAME
         };
     }
 
@@ -447,9 +447,9 @@ function BRealTimeHtb(configs) {
         var bidTransformerConfigs = {
             //? if (FEATURES.GPT_LINE_ITEMS) {
             targeting: {
-                inputCentsMultiplier: 100, // Input is in cents
+                inputCentsMultiplier: 1, // Input is in cents
                 outputCentsDivisor: 1, // Output as cents
-                outputPrecision: 2, // With 0 decimal places
+                outputPrecision: 0, // With 0 decimal places
                 roundingType: 'FLOOR', // jshint ignore:line
                 floor: 0,
                 buckets: [{
