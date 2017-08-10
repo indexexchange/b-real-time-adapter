@@ -77,11 +77,11 @@ describe('generateRequestObj', function () {
 
     /* Generate a request object using generated mock return parcels. */
     returnParcels = generateReturnParcels(partnerProfile, partnerConfig);
-
+    console.log('partnerProfile.architecture', partnerProfile.architecture)
     /* -------- IF SRA, generate a single request for all the parcels -------- */
     if (partnerProfile.architecture) {
         requestObject = partnerModule.generateRequestObj(returnParcels);
-
+        console.log('requestObject', requestObject);
         /* Simple type checking, should always pass */
         it('SRA - should return a correctly formatted object', function () {
             var result = inspector.validate({

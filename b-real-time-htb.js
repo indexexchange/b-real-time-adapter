@@ -174,11 +174,11 @@ function BRealTimeHtb(configs) {
         }
 
         /* -------------------------------------------------------------------------- */
-
+        
         return {
             url: baseUrl,
             data: {tags: __tags},
-            callbackId: Partner.CallbackTypes.CALLBACK_NAME
+            callbackId: callbackId
         };
     }
 
