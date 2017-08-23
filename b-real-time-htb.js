@@ -160,7 +160,7 @@ function BRealTimeHtb(configs) {
         
         var __tags = [];
         for(var i=0;i<returnParcels.length;i++) {
-          var returnParcel = returnParcels[i], tag = {};
+          var returnParcel = returnParcels[i], tag = {}, uuid = System.generateUniqueId();
           tag.sizes = returnParcel.xSlotRef.sizes.map(function(obj) {
             return {width:obj[0], height:obj[1]};
           });
@@ -169,7 +169,8 @@ function BRealTimeHtb(configs) {
           tag.allow_smaller_sizes = false;
           tag.prebid = true;
           tag.disable_psa = true;
-          tag.uuid = System.generateUniqueId();
+          tag.uuid = uuid;
+          returnParcel.uuid = uuid;
           __tags.push(tag);
         }
 
@@ -270,7 +271,7 @@ function BRealTimeHtb(configs) {
                  * is usually some sort of placements or inventory codes. Please replace the someCriteria
                  * key to a key that represents the placement in the configuration and in the bid responses.
                  */
-                if (unusedReturnParcel.xSlotRef.uuid === bid.uuid) { // change this
+                if (unusedReturnParcel.uuid === bid.uuid) { // change this
                     curReturnParcel = unusedReturnParcels[j];
                     unusedReturnParcels.splice(j, 1);
                     break;

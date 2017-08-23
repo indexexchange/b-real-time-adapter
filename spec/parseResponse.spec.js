@@ -107,6 +107,7 @@ describe('parseResponse', function() {
 
         var adResponseMock1 = {
             "version": "0.0.1",
+            "uuid": "Yv4kQgkN0vwuGK9",
             "tags": [
               {
                 "uuid": "2nDyOuqu3NvKSnK",
@@ -317,6 +318,7 @@ describe('parseResponse', function() {
 
         var adResponseMock2 = {
             "version": "0.0.1",
+            "uuid": "ZlKYxQASnHAYcIN",
             "tags": [{
                     "uuid": "4ZdqH4CeeU2crVh",
                     "tag_id": 10256447,
@@ -350,7 +352,6 @@ describe('parseResponse', function() {
 
                 /* IF MRA, parse one parcel at a time */
                 if (!partnerProfile.architecture) partnerModule.parseResponse(1, adResponseMock2, [returnParcels2[i]]);
-
                 var result = inspector.validate({
                     type: 'object',
                     properties: {
@@ -426,6 +427,7 @@ describe('parseResponse', function() {
 
         var adResponseMock3 = {
             "version": "0.0.1",
+            "uuid": "4ZdqH4CeeU2crVh",
             "tags": [{
                     "uuid": "q1vEZnLgb2RBKfB",
                     "tag_id": 10256447,

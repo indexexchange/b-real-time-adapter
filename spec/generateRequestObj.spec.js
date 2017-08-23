@@ -81,7 +81,6 @@ describe('generateRequestObj', function () {
     /* -------- IF SRA, generate a single request for all the parcels -------- */
     if (partnerProfile.architecture) {
         requestObject = partnerModule.generateRequestObj(returnParcels);
-        console.log('requestObject', requestObject);
         /* Simple type checking, should always pass */
         it('SRA - should return a correctly formatted object', function () {
             var result = inspector.validate({

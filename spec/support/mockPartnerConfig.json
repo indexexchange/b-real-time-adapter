@@ -5,24 +5,21 @@
             "placementId": "10256447",
             "sizes": [
                 [300, 250]
-            ],
-            "uuid": "ZlKYxQASnHAYcIN"
+            ]
         }
         ,
         "2": {
             "placementId": "10256447",
             "sizes": [
                 [300, 600]
-            ],
-            "uuid": "q1vEZnLgb2RBKfB"
+            ]
         }
         ,
         "3": {
             "placementId": "10256447",
             "sizes": [
                 [728, 90]
-            ],
-            "uuid": "4ZdqH4CeeU2crVh"
+            ]
         }
     },
     "mapping": {
