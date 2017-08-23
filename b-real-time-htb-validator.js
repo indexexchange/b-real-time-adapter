@@ -48,10 +48,6 @@ var partnerValidator = function (configs) {
                             sizes: {
                                 type: 'array',
                                 minLength: 1
-                            },
-                            uuid: {
-                                type: 'string',
-                                minLength: 1
                             }
                         }
                     }
