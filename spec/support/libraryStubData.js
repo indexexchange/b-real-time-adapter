@@ -9,16 +9,16 @@ var libraryStubData = {
     },
     'browser.js': {
         getProtocol: function () {
-            return 'http://';
+            return 'http:';
         },
         getReferrer: function () {
             return 'localhost';
         },
         getPageUrl: function () {
-            return 'localhost';
+            return 'http://localhost';
         },
         getUserAgent: function () {
-            return 'desktop';
+            return 'Mozilla/5.0 (Windows; U; Windows NT 6.1; rv:2.2) Gecko/20110201';
         },
         getLanguage: function () {
             return 'en-US';

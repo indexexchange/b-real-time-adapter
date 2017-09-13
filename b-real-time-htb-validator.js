@@ -42,7 +42,7 @@ var partnerValidator = function (configs) {
                         type: 'object',
                         properties: {
                             placementId: {
-                                type: 'string',
+                                type: 'number',
                                 minLength: 1
                             },
                             sizes: {

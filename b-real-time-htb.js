@@ -78,7 +78,7 @@ function BRealTimeHtb(configs) {
      * 
      * @private {string}
      */
-    var __endpoint = 'ib.adnxs.com/ut/v2/prebid';
+    var __endpoint = '//ib.adnxs.com/ut/v2/prebid';
 
     /* =====================================
      * Functions
@@ -179,7 +179,8 @@ function BRealTimeHtb(configs) {
         return {
             url: baseUrl,
             data: {tags: __tags},
-            callbackId: callbackId
+            callbackId: callbackId,
+            networkParamOverrides: {method: 'POST'}
         };
     }
 
@@ -424,7 +425,7 @@ function BRealTimeHtb(configs) {
                 pmid: 'ix_brt_dealid'
             },
             lineItemType: Constants.LineItemTypes.ID_AND_SIZE,
-            callbackType: Partner.CallbackTypes.ID, // Callback type, please refer to the readme for details
+            callbackType: Partner.CallbackTypes.NONE, // Callback type, please refer to the readme for details
             architecture: Partner.Architectures.FSRA, // Request architecture, please refer to the readme for details
             requestType: Partner.RequestTypes.ANY // Request type, jsonp, ajax, or any.
         };
