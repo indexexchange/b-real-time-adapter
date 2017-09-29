@@ -175,7 +175,7 @@ function BRealTimeHtb(configs) {
         }
 
         /* -------------------------------------------------------------------------- */
-        
+
         return {
             url: baseUrl,
             data: {tags: __tags},
@@ -263,16 +263,15 @@ function BRealTimeHtb(configs) {
         for (var i = 0; i < bids.length; i++) {
 
             var curReturnParcel, bid = bids[i];
-            
+
             for (var j = unusedReturnParcels.length - 1; j >= 0; j--) {
-                var unusedReturnParcel = unusedReturnParcels[j];
                 /**
                  * This section maps internal returnParcels and demand returned from the bid request.
                  * In order to match them correctly, they must be matched via some criteria. This
                  * is usually some sort of placements or inventory codes. Please replace the someCriteria
                  * key to a key that represents the placement in the configuration and in the bid responses.
                  */
-                if (unusedReturnParcel.uuid === bid.uuid) { // change this
+                if (unusedReturnParcels[j].uuid === bid.uuid) { // change this
                     curReturnParcel = unusedReturnParcels[j];
                     unusedReturnParcels.splice(j, 1);
                     break;
@@ -295,7 +294,7 @@ function BRealTimeHtb(configs) {
             }
 
             /* ---------------------------------------------------------------------------------------*/
-            
+
             if (bidIsPass) {
                 //? if (DEBUG) {
                 Scribe.info(__profile.partnerId + ' returned pass for { id: ' + adResponse.id + ' }.');
@@ -305,7 +304,8 @@ function BRealTimeHtb(configs) {
                         sessionId: sessionId,
                         statsId: __profile.statsId,
                         htSlotId: curReturnParcel.htSlot.getId(),
-                        xSlotNames: [curReturnParcel.xSlotName]
+                        xSlotNames: [curReturnParcel.xSlotName],
+                        requestId: curReturnParcel.requestId
                     });
                 }
 
@@ -319,7 +319,8 @@ function BRealTimeHtb(configs) {
                     sessionId: sessionId,
                     statsId: __profile.statsId,
                     htSlotId: curReturnParcel.htSlot.getId(),
-                    xSlotNames: [curReturnParcel.xSlotName]
+                    xSlotNames: [curReturnParcel.xSlotName],
+                    requestId: curReturnParcel.requestId
                 });
             }
             
@@ -449,7 +450,7 @@ function BRealTimeHtb(configs) {
         var bidTransformerConfigs = {
             //? if (FEATURES.GPT_LINE_ITEMS) {
             targeting: {
-                inputCentsMultiplier: 1, // Input is in cents
+                inputCentsMultiplier: 100, // Input is in cents
                 outputCentsDivisor: 1, // Output as cents
                 outputPrecision: 0, // With 0 decimal places
                 roundingType: 'FLOOR', // jshint ignore:line
@@ -465,7 +466,7 @@ function BRealTimeHtb(configs) {
             //? }
             //? if (FEATURES.RETURN_PRICE) {
             price: {
-                inputCentsMultiplier: 1, // Input is in cents
+                inputCentsMultiplier: 100, // Input is in cents
                 outputCentsDivisor: 1, // Output as cents
                 outputPrecision: 0, // With 0 decimal places
                 roundingType: 'NONE',

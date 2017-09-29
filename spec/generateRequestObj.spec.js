@@ -77,7 +77,7 @@ describe('generateRequestObj', function () {
 
     /* Generate a request object using generated mock return parcels. */
     returnParcels = generateReturnParcels(partnerProfile, partnerConfig);
-    console.log('partnerProfile.architecture', partnerProfile.architecture)
+
     /* -------- IF SRA, generate a single request for all the parcels -------- */
     if (partnerProfile.architecture) {
         requestObject = partnerModule.generateRequestObj(returnParcels);

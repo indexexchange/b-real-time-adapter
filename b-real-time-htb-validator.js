@@ -47,7 +47,14 @@ var partnerValidator = function (configs) {
                             },
                             sizes: {
                                 type: 'array',
-                                minLength: 1
+                                minLength: 1,
+                                items: {
+                                    type: 'array',
+                                    exactLength: 2,
+                                    items: {
+                                        type: 'number'
+                                    }
+                                }
                             }
                         }
                     }
