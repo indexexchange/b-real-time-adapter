@@ -72,6 +72,13 @@ function BRealTimeHtb(configs) {
      * @private {object}
      */
     var __bidTransformers;
+    
+    /**
+     * Bidding endpoint
+     * 
+     * @private {string}
+     */
+    var __endpoint = '//ib.adnxs.com/ut/v2/prebid';
 
     /* =====================================
      * Functions
@@ -90,7 +97,7 @@ function BRealTimeHtb(configs) {
      */
     function __generateRequestObj(returnParcels) {
         var queryObj = {};
-        var baseUrl = Browser.getProtocol() + '';
+        var baseUrl = Browser.getProtocol() + __endpoint;
         var callbackId = System.generateUniqueId();
 
         /* =============================================================================
@@ -150,13 +157,30 @@ function BRealTimeHtb(configs) {
          */
 
         /* PUT CODE HERE */
+        
+        var __tags = [];
+        for(var i=0;i<returnParcels.length;i++) {
+          var returnParcel = returnParcels[i], tag = {}, uuid = System.generateUniqueId();
+          tag.sizes = returnParcel.xSlotRef.sizes.map(function(obj) {
+            return {width:obj[0], height:obj[1]};
+          });
+          tag.id = returnParcel.xSlotRef.placementId;
+          tag.primary_size = tag.sizes[0];
+          tag.allow_smaller_sizes = false;
+          tag.prebid = true;
+          tag.disable_psa = true;
+          tag.uuid = uuid;
+          returnParcel.uuid = uuid;
+          __tags.push(tag);
+        }
 
         /* -------------------------------------------------------------------------- */
 
         return {
             url: baseUrl,
-            data: queryObj,
-            callbackId: callbackId
+            data: {tags: __tags},
+            callbackId: callbackId,
+            networkParamOverrides: {method: 'POST'}
         };
     }
 
@@ -233,24 +257,21 @@ function BRealTimeHtb(configs) {
 
         /* ---------- Proces adResponse and extract the bids into the bids array ------------*/
 
-        var bids = adResponse;
+        var bids = adResponse.tags;
 
         /* --------------------------------------------------------------------------------- */
-
         for (var i = 0; i < bids.length; i++) {
 
-            var curReturnParcel;
+            var curReturnParcel, bid = bids[i];
 
             for (var j = unusedReturnParcels.length - 1; j >= 0; j--) {
-
                 /**
                  * This section maps internal returnParcels and demand returned from the bid request.
                  * In order to match them correctly, they must be matched via some criteria. This
                  * is usually some sort of placements or inventory codes. Please replace the someCriteria
                  * key to a key that represents the placement in the configuration and in the bid responses.
                  */
-
-                if (unusedReturnParcels[j].someCriteria === bids[i].someCriteria) { // change this
+                if (unusedReturnParcels[j].uuid === bid.uuid) { // change this
                     curReturnParcel = unusedReturnParcels[j];
                     unusedReturnParcels.splice(j, 1);
                     break;
@@ -263,12 +284,14 @@ function BRealTimeHtb(configs) {
 
             /* ---------- Fill the bid variables with data from the bid response here. ------------*/
 
-            var bidPrice; // the bid price for the given slot
-            var bidWidth; // the width of the given slot
-            var bidHeight; // the height of the given slot
-            var bidCreative; // the creative/adm for the given slot that will be rendered if is the winner.
-            var bidDealId; // the dealId if applicable for this slot.
-            var bidIsPass; // true/false value for if the module returned a pass for this slot.
+            var bidIsPass = bid.nobid; // true/false value for if the module returned a pass for this slot.
+            if(!bidIsPass) {
+              var bidPrice = bid.ads[0].cpm; // the bid price for the given slot
+              var bidWidth = bid.ads[0].rtb.banner.width; // the width of the given slot
+              var bidHeight = bid.ads[0].rtb.banner.height; // the height of the given slot
+              var bidCreative = bid.ads[0].rtb.banner.content; // the creative/adm for the given slot that will be rendered if is the winner.
+              var bidDealId = (typeof bid.ads[0].deal_id !== 'undefined') ? bid.ads[0].deal_id : null; // the dealId if applicable for this slot.
+            }
 
             /* ---------------------------------------------------------------------------------------*/
 
@@ -281,7 +304,8 @@ function BRealTimeHtb(configs) {
                         sessionId: sessionId,
                         statsId: __profile.statsId,
                         htSlotId: curReturnParcel.htSlot.getId(),
-                        xSlotNames: [curReturnParcel.xSlotName]
+                        xSlotNames: [curReturnParcel.xSlotName],
+                        requestId: curReturnParcel.requestId
                     });
                 }
 
@@ -295,10 +319,11 @@ function BRealTimeHtb(configs) {
                     sessionId: sessionId,
                     statsId: __profile.statsId,
                     htSlotId: curReturnParcel.htSlot.getId(),
-                    xSlotNames: [curReturnParcel.xSlotName]
+                    xSlotNames: [curReturnParcel.xSlotName],
+                    requestId: curReturnParcel.requestId
                 });
             }
-
+            
             curReturnParcel.size = [bidWidth, bidHeight];
             curReturnParcel.targetingType = 'slot';
             curReturnParcel.targeting = {};
@@ -307,14 +332,14 @@ function BRealTimeHtb(configs) {
             var targetingCpm = __bidTransformers.targeting.apply(bidPrice);
             var sizeKey = Size.arrayToString(curReturnParcel.size);
 
-            if (bidDealId !== '') {
+            if (bidDealId !== null) {
                 curReturnParcel.targeting[__baseClass._configs.targetingKeys.pmid] = [sizeKey + '_' + bidDealId];
                 curReturnParcel.targeting[__baseClass._configs.targetingKeys.pm] = [sizeKey + '_' + targetingCpm];
             } else {
                 curReturnParcel.targeting[__baseClass._configs.targetingKeys.om] = [sizeKey + '_' + targetingCpm];
             }
             curReturnParcel.targeting[__baseClass._configs.targetingKeys.id] = [curReturnParcel.requestId];
-
+            
             if (__baseClass._configs.lineItemType === Constants.LineItemTypes.ID_AND_SIZE) {
                 RenderService.registerAdByIdAndSize(
                     sessionId,
@@ -401,8 +426,8 @@ function BRealTimeHtb(configs) {
                 pmid: 'ix_brt_dealid'
             },
             lineItemType: Constants.LineItemTypes.ID_AND_SIZE,
-            callbackType: Partner.CallbackTypes.ID, // Callback type, please refer to the readme for details
-            architecture: Partner.Architectures.SRA, // Request architecture, please refer to the readme for details
+            callbackType: Partner.CallbackTypes.NONE, // Callback type, please refer to the readme for details
+            architecture: Partner.Architectures.FSRA, // Request architecture, please refer to the readme for details
             requestType: Partner.RequestTypes.ANY // Request type, jsonp, ajax, or any.
         };
         /* ---------------------------------------------------------------------------------------*/
@@ -425,7 +450,7 @@ function BRealTimeHtb(configs) {
         var bidTransformerConfigs = {
             //? if (FEATURES.GPT_LINE_ITEMS) {
             targeting: {
-                inputCentsMultiplier: 1, // Input is in cents
+                inputCentsMultiplier: 100, // Input is in cents
                 outputCentsDivisor: 1, // Output as cents
                 outputPrecision: 0, // With 0 decimal places
                 roundingType: 'FLOOR', // jshint ignore:line
@@ -441,7 +466,7 @@ function BRealTimeHtb(configs) {
             //? }
             //? if (FEATURES.RETURN_PRICE) {
             price: {
-                inputCentsMultiplier: 1, // Input is in cents
+                inputCentsMultiplier: 100, // Input is in cents
                 outputCentsDivisor: 1, // Output as cents
                 outputPrecision: 0, // With 0 decimal places
                 roundingType: 'NONE',
