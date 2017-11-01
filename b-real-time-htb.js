@@ -16,7 +16,6 @@
 // Dependencies ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-var BidTransformer = require('bid-transformer.js');
 var Browser = require('browser.js');
 var Classify = require('classify.js');
 var Constants = require('constants.js');
@@ -67,15 +66,8 @@ function BRealTimeHtb(configs) {
     var __profile;
 
     /**
-     * Instances of BidTransformer for transforming bids.
-     *
-     * @private {object}
-     */
-    var __bidTransformers;
-    
-    /**
      * Bidding endpoint
-     * 
+     *
      * @private {string}
      */
     var __endpoint = '//ib.adnxs.com/ut/v2/prebid';
@@ -157,7 +149,7 @@ function BRealTimeHtb(configs) {
          */
 
         /* PUT CODE HERE */
-        
+
         var __tags = [];
         for(var i=0;i<returnParcels.length;i++) {
           var returnParcel = returnParcels[i], tag = {}, uuid = System.generateUniqueId();
@@ -204,20 +196,6 @@ function BRealTimeHtb(configs) {
 
     /* Helpers
      * ---------------------------------- */
-
-    /* =============================================================================
-     * STEP 5  | Rendering
-     * -----------------------------------------------------------------------------
-     *
-     * This function will render the ad given. Usually need not be changed unless
-     * special render functionality is needed.
-     *
-     * @param  {Object} doc The document of the iframe where the ad will go.
-     * @param  {string} adm The ad code that came with the original demand.
-     */
-    function __render(doc, adm) {
-        System.documentWrite(doc, adm);
-    }
 
     /**
      * Parses and extracts demand from adResponse according to the adapter and then attaches it
@@ -323,14 +301,15 @@ function BRealTimeHtb(configs) {
                     requestId: curReturnParcel.requestId
                 });
             }
-            
+
             curReturnParcel.size = [bidWidth, bidHeight];
             curReturnParcel.targetingType = 'slot';
             curReturnParcel.targeting = {};
+            var targetingCpm = '';
 
             //? if (FEATURES.GPT_LINE_ITEMS) {
-            var targetingCpm = __bidTransformers.targeting.apply(bidPrice);
             var sizeKey = Size.arrayToString(curReturnParcel.size);
+            targetingCpm = __baseClass._bidTransformers.targeting.apply(bidPrice);
 
             if (bidDealId !== null) {
                 curReturnParcel.targeting[__baseClass._configs.targetingKeys.pmid] = [sizeKey + '_' + bidDealId];
@@ -339,27 +318,6 @@ function BRealTimeHtb(configs) {
                 curReturnParcel.targeting[__baseClass._configs.targetingKeys.om] = [sizeKey + '_' + targetingCpm];
             }
             curReturnParcel.targeting[__baseClass._configs.targetingKeys.id] = [curReturnParcel.requestId];
-            
-            if (__baseClass._configs.lineItemType === Constants.LineItemTypes.ID_AND_SIZE) {
-                RenderService.registerAdByIdAndSize(
-                    sessionId,
-                    __profile.partnerId,
-                    __render, [bidCreative],
-                    '',
-                    __profile.features.demandExpiry.enabled ? (__profile.features.demandExpiry.value + System.now()) : 0,
-                    curReturnParcel.requestId, [bidWidth, bidHeight]
-                );
-            } else if (__baseClass._configs.lineItemType === Constants.LineItemTypes.ID_AND_PRICE) {
-                RenderService.registerAdByIdAndPrice(
-                    sessionId,
-                    __profile.partnerId,
-                    __render, [bidCreative],
-                    '',
-                    __profile.features.demandExpiry.enabled ? (__profile.features.demandExpiry.value + System.now()) : 0,
-                    curReturnParcel.requestId,
-                    targetingCpm
-                );
-            }
             //? }
 
             //? if (FEATURES.RETURN_CREATIVE) {
@@ -367,17 +325,20 @@ function BRealTimeHtb(configs) {
             //? }
 
             //? if (FEATURES.RETURN_PRICE) {
-            curReturnParcel.price = Number(__bidTransformers.price.apply(bidPrice));
+            curReturnParcel.price = Number(__baseClass._bidTransformers.price.apply(bidPrice));
             //? }
 
+            var pubKitAdId = RenderService.registerAd({
+                sessionId: sessionId,
+                partnerId: __profile.partnerId,
+                adm: bidCreative,
+                requestId: curReturnParcel.requestId,
+                size: curReturnParcel.size,
+                price: bidDealId ? bidDealId : targetingCpm,
+                timeOfExpiry: __profile.features.demandExpiry.enabled ? (__profile.features.demandExpiry.value + System.now()) : 0
+            });
+
             //? if (FEATURES.INTERNAL_RENDER) {
-            var pubKitAdId = RenderService.registerAd(
-                sessionId,
-                __profile.partnerId,
-                __render, [bidCreative],
-                '',
-                __profile.features.demandExpiry.enabled ? (__profile.features.demandExpiry.value + System.now()) : 0
-            );
             curReturnParcel.targeting.pubKitAdId = pubKitAdId;
             //? }
         }
@@ -404,7 +365,7 @@ function BRealTimeHtb(configs) {
             partnerId: 'BRealTimeHtb', // PartnerName
             namespace: 'BRealTimeHtb', // Should be same as partnerName
             statsId: 'BRT', // Unique partner identifier
-            version: '2.0.0',
+            version: '2.1.0',
             targetingType: 'slot',
             enabledAnalytics: {
                 requestTime: true
@@ -419,6 +380,7 @@ function BRealTimeHtb(configs) {
                     value: 0
                 }
             },
+            bidUnitInCents: 100, // Input is in cents
             targetingKeys: { // Targeting keys for demand, should follow format ix_{statsId}_id
                 id: 'ix_brt_id',
                 om: 'ix_brt_cpm',
@@ -438,60 +400,6 @@ function BRealTimeHtb(configs) {
         if (results) {
             throw Whoopsie('INVALID_CONFIG', results);
         }
-        //? }
-
-        /*
-         * Adjust the below bidTransformerConfigs variable to match the units the adapter
-         * sends bids in and to match line item setup. This configuration variable will
-         * be used to transform the bids going into DFP.
-         */
-
-        /* - Please fill out this bid trasnformer according to your module's bid response format - */
-        var bidTransformerConfigs = {
-            //? if (FEATURES.GPT_LINE_ITEMS) {
-            targeting: {
-                inputCentsMultiplier: 100, // Input is in cents
-                outputCentsDivisor: 1, // Output as cents
-                outputPrecision: 0, // With 0 decimal places
-                roundingType: 'FLOOR', // jshint ignore:line
-                floor: 0,
-                buckets: [{
-                    max: 2000, // Up to 20 dollar (above 5 cents)
-                    step: 5 // use 5 cent increments
-                }, {
-                    max: 5000, // Up to 50 dollars (above 20 dollars)
-                    step: 100 // use 1 dollar increments
-                }]
-            },
-            //? }
-            //? if (FEATURES.RETURN_PRICE) {
-            price: {
-                inputCentsMultiplier: 100, // Input is in cents
-                outputCentsDivisor: 1, // Output as cents
-                outputPrecision: 0, // With 0 decimal places
-                roundingType: 'NONE',
-            },
-            //? }
-        };
-
-        /* --------------------------------------------------------------------------------------- */
-
-        if (configs.bidTransformer) {
-            //? if (FEATURES.GPT_LINE_ITEMS) {
-            bidTransformerConfigs.targeting = configs.bidTransformer;
-            //? }
-            //? if (FEATURES.RETURN_PRICE) {
-            bidTransformerConfigs.price.inputCentsMultiplier = configs.bidTransformer.inputCentsMultiplier;
-            //? }
-        }
-
-        __bidTransformers = {};
-
-        //? if (FEATURES.GPT_LINE_ITEMS) {
-        __bidTransformers.targeting = BidTransformer(bidTransformerConfigs.targeting);
-        //? }
-        //? if (FEATURES.RETURN_PRICE) {
-        __bidTransformers.price = BidTransformer(bidTransformerConfigs.price);
         //? }
 
         __baseClass = Partner(__profile, configs, null, {
@@ -528,7 +436,6 @@ function BRealTimeHtb(configs) {
          * ---------------------------------- */
 
         //? if (TEST) {
-        render: __render,
         parseResponse: __parseResponse,
         generateRequestObj: __generateRequestObj,
         adResponseCallback: adResponseCallback,
