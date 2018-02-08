@@ -23,6 +23,7 @@ var Partner = require('partner.js');
 var Size = require('size.js');
 var SpaceCamp = require('space-camp.js');
 var System = require('system.js');
+var Network = require('network.js');
 var Utilities = require('utilities.js');
 var Whoopsie = require('whoopsie.js');
 var EventsService;
@@ -197,6 +198,36 @@ function BRealTimeHtb(configs) {
     /* Helpers
      * ---------------------------------- */
 
+     /* ======================================================================================
+     * Step 5 | Rendering Pixel
+     * ---------------------------------------------------------------------------------------
+     * 
+     */
+     
+     /**This function will render the pixel given.
+      * @param {string} pixelUrl Tracking pixel img url.
+      */
+
+    // function createPixel(url){
+    //     if(!url){
+    //         return '';
+    //     }
+
+    //     var escapedUrl = encodeURI(url);
+    //     var img = '<div style="position:absolute;left:0px;top:0px;visibility:hidden;">';
+    //     img += '<img src="' + escapedUrl + '"></div>';
+    //     return img;
+    // }
+
+    function __renderPixel(pixelUrl) {
+        if(pixelUrl){
+            Network.img({
+            url: pixelUrl,
+            method: 'GET',
+            });
+        }
+    }
+
     /**
      * Parses and extracts demand from adResponse according to the adapter and then attaches it
      * to the corresponding bid's returnParcel in the correct format using targeting keys.
@@ -269,6 +300,7 @@ function BRealTimeHtb(configs) {
               var bidHeight = bid.ads[0].rtb.banner.height; // the height of the given slot
               var bidCreative = bid.ads[0].rtb.banner.content; // the creative/adm for the given slot that will be rendered if is the winner.
               var bidDealId = (typeof bid.ads[0].deal_id !== 'undefined') ? bid.ads[0].deal_id : null; // the dealId if applicable for this slot.
+              var pixelUrl = (typeof bid.ads[0].rtb.trackers[0].impression_urls[0] !== 'undefined') ? bid.ads[0].rtb.trackers[0].impression_urls[0] : null; // attach impression tracker
             }
 
             /* ---------------------------------------------------------------------------------------*/
@@ -335,7 +367,9 @@ function BRealTimeHtb(configs) {
                 requestId: curReturnParcel.requestId,
                 size: curReturnParcel.size,
                 price: bidDealId ? bidDealId : targetingCpm,
-                timeOfExpiry: __profile.features.demandExpiry.enabled ? (__profile.features.demandExpiry.value + System.now()) : 0
+                timeOfExpiry: __profile.features.demandExpiry.enabled ? (__profile.features.demandExpiry.value + System.now()) : 0,
+                auxFn: __renderPixel,
+                auxArgs: [pixelUrl]
             });
 
             //? if (FEATURES.INTERNAL_RENDER) {
