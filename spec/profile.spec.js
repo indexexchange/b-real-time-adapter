@@ -144,6 +144,15 @@ describe('Partner Profile', function () {
                         }
                     }
                 },
+                bidUnitInCents: {
+                    type: 'number',
+                    gt: 0,
+                    exec: function (schema, post) {
+                        if ((post > 1 && post % 10 !== 0) || (post < 1 && !/^0\.0*1$/.test(post.toString()))) {
+                            this.report('bidUnitInCents should be a multiple of 10')
+                        }
+                    }
+                },
                 lineItemType: {
                     type: 'integer',
                     eq: 0

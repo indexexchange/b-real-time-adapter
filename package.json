@@ -13,6 +13,7 @@
   "author": "Index Exchange",
   "license": "UNLICENSED",
   "devDependencies": {
+    "mock-browser": "^0.92.14"
   },
   "dependencies": {
     "jasmine": "^2.6.0",
