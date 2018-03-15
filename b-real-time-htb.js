@@ -23,6 +23,7 @@ var Partner = require('partner.js');
 var Size = require('size.js');
 var SpaceCamp = require('space-camp.js');
 var System = require('system.js');
+var Network = require('network.js');
 var Utilities = require('utilities.js');
 var Whoopsie = require('whoopsie.js');
 var EventsService;
@@ -114,7 +115,7 @@ function BRealTimeHtb(configs) {
          * callbackId:
          *
          * arbitrary id to match the request with the response in the callback function. If
-         * your endpoint supports passing in an arbitrary ID and returning as part of the response
+         * your endpoint supports passing in an arbitrary ID and returning it as part of the response
          * please use the callbackType: Partner.CallbackTypes.ID and fill out the adResponseCallback.
          * Also please provide this adResponseCallback to your bid request here so that the JSONP
          * response calls it once it has completed.
@@ -124,7 +125,8 @@ function BRealTimeHtb(configs) {
          * matching by generating unique callbacks for each request using the callbackId.
          *
          * If your endpoint is ajax only, please set the appropriate values in your profile for this,
-         * i.e. Partner.CallbackTypes.NONE and Partner.Requesttypes.AJAX
+         * i.e. Partner.CallbackTypes.NONE and Partner.Requesttypes.AJAX. You also do not need to provide
+         * a callbackId in this case because there is no callback.
          *
          * The return object should look something like this:
          * {
@@ -147,6 +149,7 @@ function BRealTimeHtb(configs) {
          *     callbackId: '_23sd2ij4i1' //unique id used for pairing requests and responses
          * }
          */
+
 
         /* PUT CODE HERE */
 
@@ -197,13 +200,32 @@ function BRealTimeHtb(configs) {
     /* Helpers
      * ---------------------------------- */
 
+    /* =============================================================================
+     * STEP 5  | Rendering Pixel
+     * -----------------------------------------------------------------------------
+     *
+    */
+
+     /**
+     * This function will render the pixel given.
+     * @param  {string} pixelUrl Tracking pixel img url.
+     */
+    function __renderPixel(pixelUrl) {
+        if (pixelUrl){
+            Network.img({
+                url: decodeURIComponent(pixelUrl),
+                method: 'GET',
+            });
+        }
+    }
+
     /**
      * Parses and extracts demand from adResponse according to the adapter and then attaches it
      * to the corresponding bid's returnParcel in the correct format using targeting keys.
      *
      * @param {string} sessionId The sessionId, used for stats and other events.
      *
-     * @param {any} adResponse This is the adresponse as returned from the bid request, that was either
+     * @param {any} adResponse This is the bid response as returned from the bid request, that was either
      * passed to a JSONP callback or simply sent back via AJAX.
      *
      * @param {object[]} returnParcels The array of original parcels, SAME array that was passed to
@@ -211,8 +233,6 @@ function BRealTimeHtb(configs) {
      * attached to each one of the objects for which the demand was originally requested for.
      */
     function __parseResponse(sessionId, adResponse, returnParcels) {
-
-        var unusedReturnParcels = returnParcels.slice();
 
         /* =============================================================================
          * STEP 4  | Parse & store demand response
@@ -233,76 +253,99 @@ function BRealTimeHtb(configs) {
          *
          */
 
-        /* ---------- Proces adResponse and extract the bids into the bids array ------------*/
+        /* ---------- Process adResponse and extract the bids into the bids array ------------*/
 
         var bids = adResponse.tags;
 
         /* --------------------------------------------------------------------------------- */
-        for (var i = 0; i < bids.length; i++) {
 
-            var curReturnParcel, bid = bids[i];
+        for (var j = 0; j < returnParcels.length; j++) {
 
-            for (var j = unusedReturnParcels.length - 1; j >= 0; j--) {
+            var curReturnParcel = returnParcels[j];
+
+            var headerStatsInfo = {};
+            var htSlotId = curReturnParcel.htSlot.getId();
+            headerStatsInfo[htSlotId] = {};
+            headerStatsInfo[htSlotId][curReturnParcel.requestId] = [curReturnParcel.xSlotName];
+
+            var curBid;
+
+            for (var i = 0; i < bids.length; i++) {
+
                 /**
                  * This section maps internal returnParcels and demand returned from the bid request.
                  * In order to match them correctly, they must be matched via some criteria. This
                  * is usually some sort of placements or inventory codes. Please replace the someCriteria
                  * key to a key that represents the placement in the configuration and in the bid responses.
                  */
-                if (unusedReturnParcels[j].uuid === bid.uuid) { // change this
-                    curReturnParcel = unusedReturnParcels[j];
-                    unusedReturnParcels.splice(j, 1);
+
+                /* ----------- Fill this out to find a matching bid for the current parcel ------------- */
+                if (curReturnParcel.uuid === bids[i].uuid) {
+                    curBid = bids[i];
+                    bids.splice(i, 1);
                     break;
                 }
             }
 
-            if (!curReturnParcel) {
+            /* No matching bid found so its a pass */
+            if (!curBid) {
+                if (__profile.enabledAnalytics.requestTime) {
+                    __baseClass._emitStatsEvent(sessionId, 'hs_slot_pass', headerStatsInfo);
+                }
+                curReturnParcel.pass = true;
                 continue;
             }
 
             /* ---------- Fill the bid variables with data from the bid response here. ------------*/
 
-            var bidIsPass = bid.nobid; // true/false value for if the module returned a pass for this slot.
-            if(!bidIsPass) {
-              var bidPrice = bid.ads[0].cpm; // the bid price for the given slot
-              var bidWidth = bid.ads[0].rtb.banner.width; // the width of the given slot
-              var bidHeight = bid.ads[0].rtb.banner.height; // the height of the given slot
-              var bidCreative = bid.ads[0].rtb.banner.content; // the creative/adm for the given slot that will be rendered if is the winner.
-              var bidDealId = (typeof bid.ads[0].deal_id !== 'undefined') ? bid.ads[0].deal_id : null; // the dealId if applicable for this slot.
+            /* Using the above variable, curBid, extract various information about the bid and assign it to
+             * these local variables */
+
+            var bidIsPass = curBid.nobid;
+            if (!bidIsPass) {
+                curBid = curBid.ads[0];
+                var banner = curBid.rtb.banner;
+
+                /* the bid price for the given slot */
+                var bidPrice = curBid.cpm;
+
+                /* the size of the given slot */
+                var bidSize = [Number(banner.width), Number(banner.height)];
+
+                /* the creative/adm for the given slot that will be rendered if is the winner.
+                 * Please make sure the URL is decoded and ready to be document.written.
+                 */
+                var bidCreative = banner.content;
+
+                /* the dealId if applicable for this slot. */
+                var bidDealId = (typeof curBid.deal_id !== 'undefined') ? curBid.deal_id : null;
+
+                /* OPTIONAL: tracking pixel url to be fired AFTER rendering a winning creative.
+                 * If firing a tracking pixel is not required or the pixel url is part of the adm,
+                 * leave empty;
+                 */
+                var pixelUrl = curBid.rtb.trackers[0].impression_urls[0] || '';
             }
 
             /* ---------------------------------------------------------------------------------------*/
 
+            curBid = null;
             if (bidIsPass) {
                 //? if (DEBUG) {
                 Scribe.info(__profile.partnerId + ' returned pass for { id: ' + adResponse.id + ' }.');
                 //? }
                 if (__profile.enabledAnalytics.requestTime) {
-                    EventsService.emit('hs_slot_pass', {
-                        sessionId: sessionId,
-                        statsId: __profile.statsId,
-                        htSlotId: curReturnParcel.htSlot.getId(),
-                        xSlotNames: [curReturnParcel.xSlotName],
-                        requestId: curReturnParcel.requestId
-                    });
+                    __baseClass._emitStatsEvent(sessionId, 'hs_slot_pass', headerStatsInfo);
                 }
-
                 curReturnParcel.pass = true;
-
                 continue;
             }
 
             if (__profile.enabledAnalytics.requestTime) {
-                EventsService.emit('hs_slot_bid', {
-                    sessionId: sessionId,
-                    statsId: __profile.statsId,
-                    htSlotId: curReturnParcel.htSlot.getId(),
-                    xSlotNames: [curReturnParcel.xSlotName],
-                    requestId: curReturnParcel.requestId
-                });
+                __baseClass._emitStatsEvent(sessionId, 'hs_slot_bid', headerStatsInfo);
             }
 
-            curReturnParcel.size = [bidWidth, bidHeight];
+            curReturnParcel.size = bidSize;
             curReturnParcel.targetingType = 'slot';
             curReturnParcel.targeting = {};
             var targetingCpm = '';
@@ -322,6 +365,9 @@ function BRealTimeHtb(configs) {
 
             //? if (FEATURES.RETURN_CREATIVE) {
             curReturnParcel.adm = bidCreative;
+            if (pixelUrl) {
+                curReturnParcel.winNotice = __renderPixel.bind(null, pixelUrl);
+            }
             //? }
 
             //? if (FEATURES.RETURN_PRICE) {
@@ -334,8 +380,11 @@ function BRealTimeHtb(configs) {
                 adm: bidCreative,
                 requestId: curReturnParcel.requestId,
                 size: curReturnParcel.size,
-                price: bidDealId ? bidDealId : targetingCpm,
-                timeOfExpiry: __profile.features.demandExpiry.enabled ? (__profile.features.demandExpiry.value + System.now()) : 0
+                price: targetingCpm ? targetingCpm : undefined,
+                dealId: bidDealId ? bidDealId : undefined,
+                timeOfExpiry: __profile.features.demandExpiry.enabled ? (__profile.features.demandExpiry.value + System.now()) : 0,
+                auxFn: __renderPixel,
+                auxArgs: [pixelUrl]
             });
 
             //? if (FEATURES.INTERNAL_RENDER) {
@@ -365,7 +414,7 @@ function BRealTimeHtb(configs) {
             partnerId: 'BRealTimeHtb', // PartnerName
             namespace: 'BRealTimeHtb', // Should be same as partnerName
             statsId: 'BRT', // Unique partner identifier
-            version: '2.1.0',
+            version: '2.2.1',
             targetingType: 'slot',
             enabledAnalytics: {
                 requestTime: true
@@ -380,7 +429,7 @@ function BRealTimeHtb(configs) {
                     value: 0
                 }
             },
-            bidUnitInCents: 100, // Input is in cents
+            bidUnitInCents: 100, // The bid price unit (in cents) the endpoint returns, please refer to the readme for details
             targetingKeys: { // Targeting keys for demand, should follow format ix_{statsId}_id
                 id: 'ix_brt_id',
                 om: 'ix_brt_cpm',
