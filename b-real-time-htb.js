@@ -28,6 +28,7 @@ var Utilities = require('utilities.js');
 var Whoopsie = require('whoopsie.js');
 var EventsService;
 var RenderService;
+var ComplianceService;
 
 //? if (DEBUG) {
 var ConfigValidators = require('config-validators.js');
@@ -89,11 +90,10 @@ function BRealTimeHtb(configs) {
      * @return {object}
      */
     function __generateRequestObj(returnParcels) {
-        var queryObj = {};
         var baseUrl = Browser.getProtocol() + __endpoint;
         var callbackId = System.generateUniqueId();
         var gdprStatus = ComplianceService.gdpr.getConsent();
-        var privacyEnabled = ComplianceService.isPrivacyEnabled();
+        var gdprPrivacyEnabled = ComplianceService.isPrivacyEnabled();
 
         /* =============================================================================
          * STEP 2  | Generate Request URL
@@ -175,12 +175,12 @@ function BRealTimeHtb(configs) {
             returnParcel.uuid = uuid;
 
             if (gdprPrivacyEnabled) {
-                if (gdprStatus.consentString !== void(0)) {
-                    tag.gdpr_consent = gdprStatus.consentString;
-                }
-                if (gdprStatus.applies !== void 0) {
-                    tag.gpdr = gdprStatus.applies ? "1" : "0";
-                }
+              if (gdprStatus.consentString !== void 0) {
+                tag.gdpr_consent = gdprStatus.consentString;
+              }
+              if (gdprStatus.applies !== void 0) {
+                tag.gpdr = gdprStatus.applies ? "1" : "0";
+              }
             }
 
             __tags.push(tag);
@@ -424,6 +424,7 @@ function BRealTimeHtb(configs) {
     (function __constructor() {
         EventsService = SpaceCamp.services.EventsService;
         RenderService = SpaceCamp.services.RenderService;
+        ComplianceService = SpaceCamp.services.ComplianceService;
 
         /* =============================================================================
          * STEP 1  | Partner Configuration
