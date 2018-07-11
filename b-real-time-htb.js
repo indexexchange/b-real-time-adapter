@@ -277,6 +277,15 @@ function BRealTimeHtb(configs) {
          */
 
         /* ---------- Process adResponse and extract the bids into the bids array ------------*/
+        
+        /* No response or no bids returned so it's a pass */
+        if (!adResponse.tags) {
+            if (__profile.enabledAnalytics.requestTime) {
+                __baseClass._emitStatsEvent(sessionId, 'hs_slot_pass', headerStatsInfo);
+            }
+            curReturnParcel.pass = true;
+            return;
+        }
 
         var bids = adResponse.tags;
 
@@ -438,7 +447,7 @@ function BRealTimeHtb(configs) {
             partnerId: 'BRealTimeHtb', // PartnerName
             namespace: 'BRealTimeHtb', // Should be same as partnerName
             statsId: 'BRT', // Unique partner identifier
-            version: '2.2.1',
+            version: '2.2.2',
             targetingType: 'slot',
             enabledAnalytics: {
                 requestTime: true
