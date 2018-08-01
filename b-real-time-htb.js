@@ -28,6 +28,7 @@ var Utilities = require('utilities.js');
 var Whoopsie = require('whoopsie.js');
 var EventsService;
 var RenderService;
+var ComplianceService;
 
 //? if (DEBUG) {
 var ConfigValidators = require('config-validators.js');
@@ -89,9 +90,10 @@ function BRealTimeHtb(configs) {
      * @return {object}
      */
     function __generateRequestObj(returnParcels) {
-        var queryObj = {};
         var baseUrl = Browser.getProtocol() + __endpoint;
         var callbackId = System.generateUniqueId();
+        var gdprStatus = ComplianceService.gdpr.getConsent();
+        var gdprPrivacyEnabled = ComplianceService.isPrivacyEnabled();
 
         /* =============================================================================
          * STEP 2  | Generate Request URL
@@ -154,28 +156,49 @@ function BRealTimeHtb(configs) {
         /* PUT CODE HERE */
 
         var __tags = [];
-        for(var i=0;i<returnParcels.length;i++) {
-          var returnParcel = returnParcels[i], tag = {}, uuid = System.generateUniqueId();
-          tag.sizes = returnParcel.xSlotRef.sizes.map(function(obj) {
-            return {width:obj[0], height:obj[1]};
-          });
-          tag.id = returnParcel.xSlotRef.placementId;
-          tag.primary_size = tag.sizes[0];
-          tag.allow_smaller_sizes = false;
-          tag.prebid = true;
-          tag.disable_psa = true;
-          tag.uuid = uuid;
-          returnParcel.uuid = uuid;
-          __tags.push(tag);
+        for (var i = 0; i < returnParcels.length; i++) {
+            var returnParcel = returnParcels[i],
+                tag = {},
+                uuid = System.generateUniqueId();
+            tag.sizes = returnParcel.xSlotRef.sizes.map(function (obj) {
+                return {
+                    width: obj[0],
+                    height: obj[1]
+                };
+            });
+            tag.id = returnParcel.xSlotRef.placementId;
+            tag.primary_size = tag.sizes[0];
+            tag.allow_smaller_sizes = false;
+            tag.prebid = true;
+            tag.disable_psa = true;
+            tag.uuid = uuid;
+            returnParcel.uuid = uuid;
+
+            if (gdprPrivacyEnabled) {
+              if (gdprStatus.consentString !== void 0) {
+                tag.gdpr_consent = gdprStatus.consentString;
+              }
+              if (gdprStatus.applies !== void 0) {
+                tag.gpdr = gdprStatus.applies ? "1" : "0";
+              }
+            }
+
+            __tags.push(tag);
         }
+
+
 
         /* -------------------------------------------------------------------------- */
 
         return {
             url: baseUrl,
-            data: {tags: __tags},
+            data: {
+                tags: __tags
+            },
             callbackId: callbackId,
-            networkParamOverrides: {method: 'POST'}
+            networkParamOverrides: {
+                method: 'POST'
+            }
         };
     }
 
@@ -204,14 +227,14 @@ function BRealTimeHtb(configs) {
      * STEP 5  | Rendering Pixel
      * -----------------------------------------------------------------------------
      *
-    */
+     */
 
-     /**
+    /**
      * This function will render the pixel given.
      * @param  {string} pixelUrl Tracking pixel img url.
      */
     function __renderPixel(pixelUrl) {
-        if (pixelUrl){
+        if (pixelUrl) {
             Network.img({
                 url: decodeURIComponent(pixelUrl),
                 method: 'GET',
@@ -254,6 +277,15 @@ function BRealTimeHtb(configs) {
          */
 
         /* ---------- Process adResponse and extract the bids into the bids array ------------*/
+        
+        /* No response or no bids returned so it's a pass */
+        if (!adResponse.tags) {
+            if (__profile.enabledAnalytics.requestTime) {
+                __baseClass._emitStatsEvent(sessionId, 'hs_slot_pass', headerStatsInfo);
+            }
+            curReturnParcel.pass = true;
+            return;
+        }
 
         var bids = adResponse.tags;
 
@@ -401,6 +433,7 @@ function BRealTimeHtb(configs) {
     (function __constructor() {
         EventsService = SpaceCamp.services.EventsService;
         RenderService = SpaceCamp.services.RenderService;
+        ComplianceService = SpaceCamp.services.ComplianceService;
 
         /* =============================================================================
          * STEP 1  | Partner Configuration
@@ -414,7 +447,7 @@ function BRealTimeHtb(configs) {
             partnerId: 'BRealTimeHtb', // PartnerName
             namespace: 'BRealTimeHtb', // Should be same as partnerName
             statsId: 'BRT', // Unique partner identifier
-            version: '2.2.1',
+            version: '2.2.2',
             targetingType: 'slot',
             enabledAnalytics: {
                 requestTime: true
